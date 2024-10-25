@@ -103,11 +103,31 @@ function findLeadByPhone($phone) {
 }
 
 // Функция для обновления существующего лида
-function updateLead($leadId, $comment) {
+function updateLead($leadId, $newComment) {
+    // Запрашиваем текущий комментарий лида
+    $queryData = [
+        'id' => $leadId
+    ];
+    
+    $response = file_get_contents(WEBHOOK_URL . 'crm.lead.get?' . http_build_query($queryData));
+    if ($response === false) {
+        file_put_contents('log.txt', "Error fetching lead data for update: " . $http_response_header[0] . "\n", FILE_APPEND);
+        return;
+    }
+    
+    $leadData = json_decode($response, true);
+    
+    // Получаем текущий комментарий
+    $currentComment = $leadData['result']['COMMENTS'] ?? '';
+    
+    // Объединяем старый и новый комментарии
+    $updatedComment = $currentComment . "\n" . $newComment;
+
+    // Записываем объединенный комментарий обратно в лид
     $queryData = [
         'id' => $leadId,
         'fields' => [
-            'COMMENTS' => $comment
+            'COMMENTS' => $updatedComment
         ]
     ];
     
@@ -118,6 +138,7 @@ function updateLead($leadId, $comment) {
         file_put_contents('log.txt', "Successfully updated lead with ID: $leadId\n", FILE_APPEND);
     }
 }
+
 
 // Функция для удаления лида
 function deleteLead($leadId) {
