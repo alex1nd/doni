@@ -56,14 +56,24 @@ if (isset($input['event']) && strtoupper($input['event']) == 'ONCRMLEADADD') {
                 $normalizedPhone = normalizePhone($phone);
                 file_put_contents('log.txt', "Normalized phone number: $normalizedPhone\n", FILE_APPEND);
                 
-                // Ищем лиды с таким же нормализованным номером телефона
-                $leads = findLeadByPhone($normalizedPhone);
-                file_put_contents('log.txt', "Found leads: " . print_r($leads, true) . "\n", FILE_APPEND);
+                // Ищем все лиды и фильтруем их по нормализованным номерам
+                $leads = findAllLeads();
+                $duplicates = [];
+                foreach ($leads as $lead) {
+                    foreach ($lead['PHONE'] as $phoneInfo) {
+                        $normalizedLeadPhone = normalizePhone($phoneInfo['VALUE']);
+                        if ($normalizedLeadPhone === $normalizedPhone && $lead['ID'] != $newLeadId) {
+                            $duplicates[] = $lead;
+                        }
+                    }
+                }
+
+                file_put_contents('log.txt', "Found duplicates: " . print_r($duplicates, true) . "\n", FILE_APPEND);
                 
-                if (count($leads) > 1) {
+                if (count($duplicates) > 0) {
                     // Если найден дубль, обновляем основной лид и удаляем дубль
-                    $mainLead = $leads[0];
-                    $duplicateLead = $leads[1];
+                    $mainLead = $duplicates[0];
+                    $duplicateLead = $leadData['result'];
                     
                     $comment = "Информация из дубля: " . $duplicateLead['TITLE'];
                     file_put_contents('log.txt', "Updating main lead (ID: {$mainLead['ID']}) with comment: $comment\n", FILE_APPEND);
@@ -99,11 +109,11 @@ function normalizePhone($phone) {
     return $normalizedPhone;
 }
 
-// Функция для поиска лида по нормализованному номеру телефона
-function findLeadByPhone($phone) {
+// Функция для получения всех лидов
+function findAllLeads() {
     $queryData = [
-        'filter' => ['PHONE' => $phone],
-        'select' => ['ID', 'TITLE', 'PHONE']
+        'select' => ['ID', 'TITLE', 'PHONE'],
+        'filter' => ['HAS_PHONE' => 'Y']
     ];
     
     $response = file_get_contents(WEBHOOK_URL . 'crm.lead.list?' . http_build_query($queryData));
@@ -112,7 +122,7 @@ function findLeadByPhone($phone) {
     }
     
     $result = json_decode($response, true);
-    file_put_contents('log.txt', "Lead list response: " . print_r($result, true) . "\n", FILE_APPEND);
+    file_put_contents('log.txt', "All leads response: " . print_r($result, true) . "\n", FILE_APPEND);
     return $result['result'] ?? [];
 }
 
