@@ -1,5 +1,5 @@
 <?php
-// Ваши данные авторизации для API
+// Ваши данные авторизации для API.
 define('WEBHOOK_URL', 'https://donyurist.bitrix24.ru/rest/1/uc4zdlah2dtbxqc3/');
 
 // Логируем старт скрипта
