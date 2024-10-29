@@ -1,6 +1,6 @@
 <?php
 // Ваши данные авторизации для API
-define('WEBHOOK_URL', 'https://donyurist.bitrix24.ru/rest/1/uc4zdlah2dtbxqc3/');
+define('WEBHOOK_URL', 'https://donyurist.bitrix24.ru/rest/1/*********************************/');
 
 // Получаем данные, отправленные из Bitrix24
 $rawInput = file_get_contents('php://input');
