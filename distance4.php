@@ -1,4 +1,5 @@
 <?php
+//Исходящий Вебхук в роботах на стадии дистанционно
 //http://donjurist.ru/distance.php?lead_id={{ID элемента CRM}}&status=14
 // Два URL вебхуков для CRM и календаря
 define('WEBHOOK_URL', 'https://donyurist.bitrix24.ru/rest/1/vpjaoorfem4q9fvy/');
