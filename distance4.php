@@ -1,4 +1,5 @@
 <?php
+//http://donjurist.ru/distance.php?lead_id={{ID элемента CRM}}&status=14
 // Два URL вебхуков для CRM и календаря
 define('WEBHOOK_URL', 'https://donyurist.bitrix24.ru/rest/1/vpjaoorfem4q9fvy/');
 define('CALENDAR_WEBHOOK_URL', 'https://donyurist.bitrix24.ru/rest/1/cm10v8rybvgyc7bh/');
@@ -18,19 +19,12 @@ $sourceNames = [
     // Добавляйте другие сопоставления SOURCE_ID и их значений здесь
 ];
 
-// Логируем старт скрипта
 file_put_contents('log.txt', "Скрипт запущен\n", FILE_APPEND);
 
 function handleLeadStatusChange($leadId) {
-    global $sourceNames; // Подключаем глобальный массив
+    global $sourceNames;
 
     file_put_contents('log.txt', "Обработка лида с ID: $leadId\n", FILE_APPEND);
-
-    // Проверка на существование события, связанного с этим leadId
-    if (eventExists($leadId)) {
-        file_put_contents('log.txt', "Событие для лида с ID $leadId уже существует, выполнение остановлено\n", FILE_APPEND);
-        return;
-    }
 
     $leadData = getLeadData($leadId);
 
@@ -40,8 +34,6 @@ function handleLeadStatusChange($leadId) {
     }
 
     $status = $leadData['result']['STATUS_ID'];
-    file_put_contents('log.txt', "Статус лида: $status\n", FILE_APPEND);
-
     if (trim($status) !== '14') { 
         file_put_contents('log.txt', "Статус не соответствует 'Дистанционно', выполнение остановлено\n", FILE_APPEND);
         return;
@@ -55,14 +47,19 @@ function handleLeadStatusChange($leadId) {
     $leadLink = "https://donyurist.bitrix24.ru/crm/lead/details/{$leadId}/";
     $phone = isset($leadData['result']['PHONE'][0]['VALUE']) ? $leadData['result']['PHONE'][0]['VALUE'] : 'Телефон не указан';
 
-    // Создаем заголовок и описание события с нужными данными
     $eventTitle = "Дистанционно, $clientName в $sourceName, $meetingDateTime, $phone";
     $description = "Событие создано автоматически.($leadLink)";
-
     $sectionId = getCalendarSectionId($responsibleId);
 
     if (!$sectionId) {
         file_put_contents('log.txt', "Не удалось найти секцию для пользователя с ID: $responsibleId\n", FILE_APPEND);
+        return;
+    }
+
+    // Проверка на существование события
+    $dateFrom = date("Y-m-d\TH:i:sP", strtotime($meetingDateTime));
+    if (eventExists($leadId, $dateFrom, $eventTitle)) {
+        file_put_contents('log.txt', "Событие для лида $leadId уже существует, выполнение остановлено\n", FILE_APPEND);
         return;
     }
 
@@ -75,25 +72,22 @@ function handleLeadStatusChange($leadId) {
     }
 }
 
-function eventExists($leadId) {
-    // Параметры поиска события по уникальному полю UF_CRM_CAL_EVENT
+function eventExists($leadId, $dateFrom, $eventTitle) {
     $eventParams = [
         'filter' => [
-            'UF_CRM_CAL_EVENT' => "L_$leadId"
+            'UF_CRM_CAL_EVENT' => "L_$leadId",
+            'NAME' => $eventTitle,
+            'DATE_FROM' => $dateFrom,
         ]
     ];
-    
     $eventResponse = callAPI('calendar.event.get', $eventParams);
     
-    // Проверка: если событие найдено, возвращаем true
     if (isset($eventResponse['result']) && count($eventResponse['result']) > 0) {
-        file_put_contents('log.txt', "Событие для лида с ID $leadId уже существует.\n", FILE_APPEND);
+        file_put_contents('log.txt', "Событие для лида $leadId уже существует.\n", FILE_APPEND);
         return true;
     }
-    
     return false;
 }
-
 
 function callAPI($method, $params) {
     $url = CALENDAR_WEBHOOK_URL . $method . '?' . http_build_query($params);
@@ -136,7 +130,7 @@ function createCalendarEvent($userId, $sectionId, $title, $dateTime, $descriptio
         'description' => $description,
         'from' => $dateFrom,
         'to' => $dateTo,
-        'skipTime' => 'Y',
+        'skipTime' => 'N',  // Убираем "Весь день"
         'section' => $sectionId,
         'text_color' => '#283033',
         'accessibility' => 'busy',
@@ -155,14 +149,11 @@ function createCalendarEvent($userId, $sectionId, $title, $dateTime, $descriptio
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     
     $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-
-    file_put_contents('log.txt', "HTTP статус: " . $httpCode . "\nОтвет от calendar.event.add: " . $response . "\n", FILE_APPEND);
 
     return json_decode($response, true);
 }
 
 // Пример использования
-handleLeadStatusChange(79955);
+handleLeadStatusChange(81033);
 ?>
